@@ -6,7 +6,17 @@ WORKDIR /app
 # Install system dependencies
 RUN apt-get update && apt-get install -y \
     gcc \
+    g++ \
+    libffi-dev \
+    libssl-dev \
+    python3-dev \
+    zlib1g-dev \
+    libjpeg-dev \
+    libpng-dev \
     && rm -rf /var/lib/apt/lists/*
+
+# Upgrade pip
+RUN pip install --upgrade pip
 
 # Copy requirements
 COPY requirements.txt .
