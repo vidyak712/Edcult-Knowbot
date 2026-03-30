@@ -1,0 +1,55 @@
+version: '3.8'
+
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: knowbot-backend
+    ports:
+      - "3001:3001"
+    environment:
+      - AZURE_COSMOS_DB_CONN=${AZURE_COSMOS_DB_CONN}
+      - AZURE_COSMOS_DB=${AZURE_COSMOS_DB}
+      - AZURE_COSMOS_CONTAINER=${AZURE_COSMOS_CONTAINER}
+      - AZURE_SEARCH_ENDPOINT=${AZURE_SEARCH_ENDPOINT}
+      - AZURE_SEARCH_ADMIN_KEY=${AZURE_SEARCH_ADMIN_KEY}
+      - AZURE_OPENAI_EMBED_API_KEY=${AZURE_OPENAI_EMBED_API_KEY}
+      - AZURE_OPENAI_EMBED_API_VERSION=${AZURE_OPENAI_EMBED_API_VERSION}
+      - AZURE_OPENAI_EMBED_ENDPOINT=${AZURE_OPENAI_EMBED_ENDPOINT}
+      - AZURE_OPENAI_EMBED_MODEL_NAME=${AZURE_OPENAI_EMBED_MODEL_NAME}
+      - AZURE_OPENAI_API_KEY=${AZURE_OPENAI_API_KEY}
+      - AZURE_OPENAI_ENDPOINT=${AZURE_OPENAI_ENDPOINT}
+      - AZURE_OPENAI_DEPLOYMENT_NAME=${AZURE_OPENAI_DEPLOYMENT_NAME}
+      - APPLICATIONINSIGHTS_CONNECTION_STRING=${APPLICATIONINSIGHTS_CONNECTION_STRING}
+    volumes:
+      - ./src:/app/src
+      - ./helpers:/app/helpers
+    depends_on:
+      - frontend
+    networks:
+      - knowbot-network
+    healthcheck:
+      test: ["CMD", "python", "-c", "import requests; requests.get('http://localhost:3001/api/health', timeout=5)"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: knowbot-frontend
+    ports:
+      - "3000:3000"
+    environment:
+      - REACT_APP_API_URL=http://localhost:3001
+    networks:
+      - knowbot-network
+    depends_on:
+      - backend
+
+networks:
+  knowbot-network:
+    driver: bridge

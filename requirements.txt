@@ -1,0 +1,11 @@
+PyMuPDF==1.24.8
+requests==2.31.0
+python-dotenv==1.0.0
+langchain==0.2.5
+langchain-core==0.2.10
+langchain-openai==0.1.7
+langchain-text-splitters==0.0.1
+azure-cosmos==4.5.1
+azure-search-documents==11.4.0
+tiktoken==0.5.2
+azure-monitor-opentelemetry==1.7.0

@@ -1,0 +1,72 @@
+/* Global Styles for Chatbot */
+* {
+  box-sizing: border-box;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
+    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
+    sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+#root {
+  width: 100%;
+  height: 100%;
+}
+
+/* Markdown Table Styling */
+.markdown-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 20px 0;
+  background: white;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  overflow: hidden;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+}
+
+.markdown-table thead {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+}
+
+.markdown-table .table-header-cell {
+  color: white;
+  padding: 12px 15px;
+  text-align: left;
+  font-weight: 600;
+  border-right: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.markdown-table .table-header-cell:last-child {
+  border-right: none;
+}
+
+.markdown-table tbody tr {
+  border-bottom: 1px solid #ddd;
+  transition: background-color 0.2s ease;
+}
+
+.markdown-table tbody tr:hover {
+  background-color: #f8f9fa;
+}
+
+.markdown-table tbody tr:last-child {
+  border-bottom: none;
+}
+
+.markdown-table .table-data-cell {
+  padding: 12px 15px;
+  color: #333;
+  border-right: 1px solid #eee;
+}
+
+.markdown-table .table-data-cell:last-child {
+  border-right: none;
+}
+
+.markdown-table tbody tr:nth-child(even) {
+  background-color: #f9f9f9;
+}
