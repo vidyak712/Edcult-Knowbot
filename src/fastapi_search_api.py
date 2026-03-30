@@ -97,7 +97,8 @@ class TokenUsage(BaseModel):
 
 class LLMRequest(BaseModel):
     query: str
-    conversationId : str
+    conversationId: str
+    user_id: str  # From Entra ID authentication
     top_docs: int = 4
 
 class LLMResponse(BaseModel):
@@ -232,12 +233,13 @@ async def health():
         )
 
 @app.get("/api/conversation-history/{conversation_id}")
-async def get_conversation_history(conversation_id: str, limit: int = 50, offset: int = 0):
+async def get_conversation_history(conversation_id: str, user_id: str, limit: int = 50, offset: int = 0):
     """
     Retrieve paginated conversation history for a given conversation ID.
     
     Args:
         conversation_id: The conversation identifier
+        user_id: The user identifier from Entra ID (required - passed as query parameter)
         limit: Maximum number of messages to return (default: 50, max: 100)
         offset: Number of messages to skip (default: 0, for pagination)
     
@@ -251,7 +253,7 @@ async def get_conversation_history(conversation_id: str, limit: int = 50, offset
             offset = 0
         
         cosmos_db_helper = CosmosDBHelper()
-        all_history = cosmos_db_helper.get_conversation(conversation_id)
+        all_history = cosmos_db_helper.get_conversation(user_id, conversation_id)
         total_count = len(all_history)
         
         all_history_sorted = sorted(
@@ -321,6 +323,7 @@ async def get_llm_response(llm_request: LLMRequest):
     try:
         query = llm_request.query.strip()
         conversation_id = llm_request.conversationId
+        user_id = llm_request.user_id  # From Entra ID
         top_docs = llm_request.top_docs
         
         # Log LLM request
@@ -416,8 +419,8 @@ async def get_llm_response(llm_request: LLMRequest):
         )
         
         # Initialize Cosmos DB helper and retrieve conversation history
-        cosmos_db_helper = CosmosDBHelper()
-        history = cosmos_db_helper.get_last_messages(conversation_id)
+        user_id = "user_001@edcults.com"  # Get from authenticated user in production
+        history = cosmos_db_helper.get_last_messages(user_id, conversation_id)
         
         logger.info(
             "Retrieved conversation history",
@@ -465,6 +468,7 @@ async def get_llm_response(llm_request: LLMRequest):
             #add the user message 
             cosmos_db_helper.add_record(
                 user_id="user_001@edcults.com",
+                conversauser_id,
                 conversation_id=conversation_id,
                 role="user",
                 content=query
@@ -472,8 +476,7 @@ async def get_llm_response(llm_request: LLMRequest):
 
             #add the assistant message 
             cosmos_db_helper.add_record(
-                user_id="user_001@edcults.com",
-                conversation_id=conversation_id,
+                user_id=user_idd,
                 role="assistant",
                 content=result["llm_response"]
             )
@@ -535,10 +538,10 @@ async def get_docs():
     """Auto-generated API documentation."""
     pass
 
-def build_messages(conversation_id, user_message):
+def build_messages(conversation_id, user_message, user_id="user_001@edcults.com"):
 
     cosmos_db_helper = CosmosDBHelper()
-    history = cosmos_db_helper.get_last_messages(conversation_id)
+    history = cosmos_db_helper.get_last_messages(user_id, conversation_id)
 
     history.append({
         "role": "user",

@@ -41,7 +41,7 @@ function App() {
   const loadConversationHistory = async (convId, offset = 0) => {
     try {
       const response = await axios.get(
-        `http://localhost:3001/api/conversation-history/${convId}?limit=50&offset=${offset}`
+        `https://edcult-knowbot-backend-server.orangepebble-f73d9664.uksouth.azurecontainerapps.io/api/conversation-history/${convId}?limit=50&offset=${offset}`
       );
       if (response.data.messages) {
         if (offset === 0) {
@@ -81,7 +81,7 @@ function App() {
 
     try {
       // Call LLM endpoint
-      const response = await axios.post('http://localhost:3001/api/llm-response', {
+      const response = await axios.post('https://edcult-knowbot-backend-server.orangepebble-f73d9664.uksouth.azurecontainerapps.io/api/llm-response', {
         query: userMessage,
         conversationId: conversationId,
         top_docs: 4

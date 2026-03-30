@@ -1,5 +1,5 @@
 # Stage 1: Build stage
-FROM node:18-alpine AS builder
+FROM node:22-alpine3.23 AS builder
 
 WORKDIR /app
 
@@ -16,7 +16,7 @@ COPY . .
 RUN npm run build
 
 # Stage 2: Runtime stage
-FROM node:18-alpine
+FROM node:22-alpine3.23
 
 WORKDIR /app
 
