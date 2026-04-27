@@ -3,7 +3,7 @@ Check documents retrieved for APPLICABLE CODES AND STANDARDS query
 """
 import sys
 sys.path.insert(0, 'src')
-from azure_llm_handler import search_azure_index
+from backend.src.azure_llm_handler import search_azure_index
 
 results = search_azure_index('APPLICABLE CODES AND STANDARDS', top=10)
 docs = results.get('value', [])

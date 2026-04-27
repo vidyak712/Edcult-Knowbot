@@ -15,13 +15,13 @@ from datetime import datetime
 from langchain_openai import AzureOpenAIEmbeddings
 
 # Import helpers
-from helpers.cosmosDBHelper import CosmosDBHelper
-from helpers.app_insights_logger import get_logger
+from backend.helpers.cosmosDBHelper import CosmosDBHelper
+from backend.helpers.app_insights_logger import get_logger
 
 try:
-    from src.azure_llm_handler import generate_response_from_query, generate_response_from_query_with_history, generate_response_from_documents_with_history
+    from backend.src.azure_llm_handler import generate_response_from_query, generate_response_from_query_with_history, generate_response_from_documents_with_history
 except ImportError:
-    from azure_llm_handler import generate_response_from_query, generate_response_from_query_with_history, generate_response_from_documents_with_history
+    from backend.src.azure_llm_handler import generate_response_from_query, generate_response_from_query_with_history, generate_response_from_documents_with_history
 
 # Load environment variables
 load_dotenv()
@@ -56,7 +56,7 @@ app.add_middleware(
 # Azure Search configuration
 SEARCH_ENDPOINT = os.getenv("AZURE_SEARCH_ENDPOINT")
 SEARCH_ADMIN_KEY = os.getenv("AZURE_SEARCH_ADMIN_KEY")
-INDEX_NAME = "index-knowbot"
+INDEX_NAME = "index-knowbot-new"
 API_VERSION = "2023-11-01"
 
 HEADERS = {
@@ -70,6 +70,7 @@ class SearchRequest(BaseModel):
     conversationId : str
     top: int = 4
     skip: int = 0
+    search_mode: str = "vector"  # "vector" or "hybrid"
 
 class SearchResult(BaseModel):
     id: str
@@ -98,6 +99,7 @@ class TokenUsage(BaseModel):
 class LLMRequest(BaseModel):
     query: str
     conversationId: str
+    search_mode: str = "vector"  # "vector" or "hybrid"
     user_id: str  # From Entra ID authentication
     top_docs: int = 4
 
@@ -155,6 +157,7 @@ async def search(search_request: SearchRequest):
                 detail=f"Failed to generate query embedding: {str(e)}"
             )
         
+        search_mode = search_request.search_mode
         search_payload = {
             "vectorQueries": [
                 {
@@ -168,7 +171,10 @@ async def search(search_request: SearchRequest):
             "skip": skip
         }
         
-        print(f"[CONVERSATION {conversation_id}] Vector search payload: top={top}, skip={skip}")
+        if search_mode == "hybrid":
+            search_payload["search"] = query
+
+        print(f"[CONVERSATION {conversation_id}] {search_mode.capitalize()} search payload: top={top}, skip={skip}")
         
         # Call Azure Search
         response = requests.post(search_url, headers=HEADERS, json=search_payload)
@@ -370,6 +376,7 @@ async def get_llm_response(llm_request: LLMRequest):
                 detail=f"Failed to generate query embedding: {str(e)}"
             )
         
+        search_mode = llm_request.search_mode
         search_payload = {
             "vectorQueries": [
                 {
@@ -381,9 +388,11 @@ async def get_llm_response(llm_request: LLMRequest):
             ],
             "top": top_docs
         }
-        
+        if search_mode == "hybrid":
+            search_payload["search"] = query
+
         logger.info(
-            "Searching Azure Search Index with vector search",
+            f"Searching Azure Search Index with {search_mode} search",
             properties={
                 "conversation_id": conversation_id,
                 "query": query,
@@ -419,7 +428,7 @@ async def get_llm_response(llm_request: LLMRequest):
         )
         
         # Initialize Cosmos DB helper and retrieve conversation history
-        user_id = "user_001@edcults.com"  # Get from authenticated user in production
+        cosmos_db_helper = CosmosDBHelper()
         history = cosmos_db_helper.get_last_messages(user_id, conversation_id)
         
         logger.info(
@@ -429,12 +438,6 @@ async def get_llm_response(llm_request: LLMRequest):
                 "history_message_count": len(history)
             }
         )
-
-        # Append current user query to history
-        history.append({
-            "role": "user",
-            "content": query
-        })
 
         # Send pre-retrieved documents and conversation history to LLM handler
         # This avoids redundant Azure Search calls
@@ -467,8 +470,7 @@ async def get_llm_response(llm_request: LLMRequest):
         try:
             #add the user message 
             cosmos_db_helper.add_record(
-                user_id="user_001@edcults.com",
-                conversauser_id,
+                user_id=user_id,
                 conversation_id=conversation_id,
                 role="user",
                 content=query
@@ -476,7 +478,8 @@ async def get_llm_response(llm_request: LLMRequest):
 
             #add the assistant message 
             cosmos_db_helper.add_record(
-                user_id=user_idd,
+                user_id=user_id,
+                conversation_id=conversation_id,
                 role="assistant",
                 content=result["llm_response"]
             )
@@ -533,10 +536,6 @@ async def root():
         }
     }
 
-@app.get("/docs", include_in_schema=False)
-async def get_docs():
-    """Auto-generated API documentation."""
-    pass
 
 def build_messages(conversation_id, user_message, user_id="user_001@edcults.com"):
 

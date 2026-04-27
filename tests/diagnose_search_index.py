@@ -9,7 +9,7 @@ load_dotenv()
 
 SEARCH_ENDPOINT = os.getenv("AZURE_SEARCH_ENDPOINT")
 SEARCH_ADMIN_KEY = os.getenv("AZURE_SEARCH_ADMIN_KEY")
-INDEX_NAME = "index-knowbot"
+INDEX_NAME = "index-knowbot-new"
 API_VERSION = "2023-11-01"
 
 HEADERS = {

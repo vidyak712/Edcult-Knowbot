@@ -16,7 +16,7 @@ import sys
 # Add parent directory to path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from helpers.app_insights_logger import get_logger
+from backend.helpers.app_insights_logger import get_logger
 
 load_dotenv()
 
@@ -29,11 +29,9 @@ AZURE_OPENAI_ENDPOINT = os.getenv("AZURE_OPENAI_ENDPOINT")
 AZURE_OPENAI_API_KEY = os.getenv("AZURE_OPENAI_API_KEY")
 AZURE_OPENAI_DEPLOYMENT_NAME = os.getenv("AZURE_OPENAI_DEPLOYMENT_NAME")
 AZURE_OPENAI_API_VERSION = os.getenv("AZURE_OPENAI_API_VERSION")
+SEARCH_INDEX_NAME = "index-knowbot-new"
 
-SEARCH_INDEX_NAME = "index-knowbot"
-
-
-def search_azure_index(query, top=4):
+def search_azure_index(query, top=10):
     """
     Search Azure Search Index and return documents
     """
@@ -80,59 +78,16 @@ def search_azure_index(query, top=4):
         )
         return {"value": []}
 
-
-def html_table_to_markdown(html_content):
-    """
-    Convert HTML table to Markdown table format
-    """
-    # Extract table from HTML
-    table_match = re.search(r'<table[^>]*>(.*?)</table>', html_content, re.DOTALL | re.IGNORECASE)
-    if not table_match:
-        return html_content
-    
-    table_html = table_match.group(1)
-    rows = re.findall(r'<tr[^>]*>(.*?)</tr>', table_html, re.DOTALL | re.IGNORECASE)
-    
-    if not rows:
-        return html_content
-    
-    markdown_rows = []
-    for i, row in enumerate(rows):
-        cells = re.findall(r'<t[dh][^>]*>(.*?)</t[dh]>', row, re.DOTALL | re.IGNORECASE)
-        # Clean cell content
-        cleaned_cells = []
-        for cell in cells:
-            # Remove HTML tags and collapse whitespace
-            clean = re.sub(r'<[^>]+>', '', cell)
-            clean = re.sub(r'\s+', ' ', clean).strip()
-            cleaned_cells.append(clean)
-        
-        if cleaned_cells:
-            markdown_rows.append('| ' + ' | '.join(cleaned_cells) + ' |')
-        
-        # Add separator after first row (header)
-        if i == 0:
-            separator = '| ' + ' | '.join(['---'] * len(cleaned_cells)) + ' |'
-            markdown_rows.append(separator)
-    
-    return '\n'.join(markdown_rows) if markdown_rows else html_content
-
-
 def prepare_context_from_documents(documents):
     """
     Prepare context string from retrieved documents for LLM.
-    Converts HTML tables to Markdown format.
+    Truncates long content and formats each document with its source label.
     """
     context_parts = []
     for doc in documents:
         content = doc.get("content", "")
         filename = doc.get("filename", "Unknown")
         page_num = doc.get("page_number", "N/A")
-        
-        # Check if content is HTML table
-        if '<table' in content.lower():
-            # Convert HTML table to Markdown
-            content = html_table_to_markdown(content)
         
         # Truncate very long content
         if len(content) > 2000:
@@ -358,7 +313,7 @@ def call_azure_openai(query, documents, history=None):
         api_key=AZURE_OPENAI_API_KEY,
         api_version=AZURE_OPENAI_API_VERSION,
         azure_deployment=AZURE_OPENAI_DEPLOYMENT_NAME,
-        temperature=0.3,
+        temperature=0,
         max_tokens=1500,
         top_p=0.95,
         timeout=60
@@ -382,7 +337,16 @@ def call_azure_openai(query, documents, history=None):
         - Use the pipe (|) separator with proper row separators (|---|)
         - Keep formatting clean and readable
 
-        If the answer is not in the documents, say so clearly."""
+        ANSWER STRUCTURE:
+        - Lead with the most direct answer or value from the documents.
+        - Then provide supporting context, source references, and caveats.
+        - Do not start with preamble or background — state the answer first.
+
+        REASONING INSTRUCTIONS:
+        - When the user's question uses a term that doesn't appear verbatim in the documents, look for functionally equivalent concepts in the retrieved content and explain the relationship.
+        - Do not say "not found" if related information exists.
+
+        If the answer is genuinely not in the documents, say so clearly."""
         
         user_message = f"""Based on the following documents, please answer this question:
 
@@ -402,7 +366,16 @@ def call_azure_openai(query, documents, history=None):
         - Maintain readability while keeping the original formatting intact
         - Do NOT format as a table unless explicitly asked
 
-        If the answer is not in the documents, say so clearly."""
+        ANSWER STRUCTURE:
+        - Lead with the most direct answer or value from the documents.
+        - Then provide supporting context, source references, and caveats.
+        - Do not start with preamble or background — state the answer first.
+
+        REASONING INSTRUCTIONS:
+        - When the user's question uses a term that doesn't appear verbatim in the documents, look for functionally equivalent concepts in the retrieved content and explain the relationship.
+        - Do not say "not found" if related information exists.
+
+        If the answer is genuinely not in the documents, say so clearly."""
         
         user_message = f"""Based on the following documents, please answer this question:
 

@@ -26,3 +26,7 @@ build/
 *.egg-info/
 frontend/
 tests/
+output/
+input/
+backup/
+*.md

@@ -1,4 +1,4 @@
-from helpers.cosmosDBHelper import CosmosDBHelper
+from backend.helpers.cosmosDBHelper import CosmosDBHelper
 
 cosmos = CosmosDBHelper()
 result = cosmos.add_record(

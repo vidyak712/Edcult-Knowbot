@@ -1,12 +1,16 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import './App.css';
 import './styles/ChatbotLayout.css';
 import ChatMessage from './components/ChatMessage';
 import ChatInput from './components/ChatInput';
 import ConversationList from './components/ConversationList';
-import axios from 'axios';
+import { useAuth } from './context/AuthContext';
+import { KnowBotAPIClient } from './services/KnowBotAPIClient';
 
 function App() {
+  const { user, isAuthenticated, isLoading, login, logout, getApiToken } = useAuth();
+  const apiClient = useRef(null);
+  
   const [conversationId, setConversationId] = useState(null);
   const [messages, setMessages] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -16,6 +20,14 @@ function App() {
   const [hasMoreMessages, setHasMoreMessages] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
   const messagesEndRef = useRef(null);
+  
+  // Initialize API client when user changes
+  useEffect(() => {
+    if (user) {
+      apiClient.current = new KnowBotAPIClient(user, getApiToken);
+      console.log('API Client initialized for user:', user.mail);
+    }
+  }, [user]);
 
   // Initialize conversation on component mount
   useEffect(() => {
@@ -25,8 +37,10 @@ function App() {
       sessionStorage.setItem('conversationId', sessionId);
     }
     setConversationId(sessionId);
-    loadConversationHistory(sessionId);
-  }, []);
+    if (user) {
+      loadConversationHistory(sessionId);
+    }
+  }, [user]); // loadConversationHistory is stable due to useCallback
 
   // Scroll to bottom when new messages arrive
   useEffect(() => {
@@ -38,25 +52,25 @@ function App() {
   };
 
   // Load conversation history with pagination
-  const loadConversationHistory = async (convId, offset = 0) => {
+  const loadConversationHistory = useCallback(async (convId, offset = 0) => {
     try {
-      const response = await axios.get(
-        `https://edcult-knowbot-backend-server.orangepebble-f73d9664.uksouth.azurecontainerapps.io/api/conversation-history/${convId}?limit=50&offset=${offset}`
-      );
-      if (response.data.messages) {
+      if (!apiClient.current) return;
+
+      const data = await apiClient.current.getConversationHistory(convId, 50, offset);
+      if (data.messages) {
         if (offset === 0) {
-          setMessages(response.data.messages);
+          setMessages(data.messages);
           setMessageOffset(50);
         } else {
-          setMessages((prev) => [...response.data.messages, ...prev]);
-          setMessageOffset(offset + response.data.messages.length);
+          setMessages((prev) => [...data.messages, ...prev]);
+          setMessageOffset(offset + data.messages.length);
         }
-        setHasMoreMessages(response.data.has_more);
+        setHasMoreMessages(data.has_more);
       }
     } catch (err) {
       console.error('Error loading conversation history:', err);
     }
-  };
+  }, []); // Empty deps because we use refs and functional state updates
 
   const handleLoadMoreMessages = async () => {
     if (!hasMoreMessages || loadingMore) return;
@@ -69,7 +83,7 @@ function App() {
   const handleSendMessage = async (userMessage) => {
     if (!userMessage.trim() || !conversationId) return;
 
-    // Add user message to chat
+    // Add user message immediately to UI
     const newUserMessage = {
       role: 'user',
       content: userMessage,
@@ -80,26 +94,32 @@ function App() {
     setLoading(true);
 
     try {
-      // Call LLM endpoint
-      const response = await axios.post('https://edcult-knowbot-backend-server.orangepebble-f73d9664.uksouth.azurecontainerapps.io/api/llm-response', {
-        query: userMessage,
-        conversationId: conversationId,
-        top_docs: 4
-      });
+      if (!apiClient.current) {
+        setError('API client not initialized. Please refresh the page.');
+        setLoading(false);
+        return;
+      }
+
+      // Call LLM endpoint via API client
+      const response = await apiClient.current.getLLMResponse(
+        userMessage,
+        conversationId,
+        4
+      );
 
       // Add assistant message to chat
       const assistantMessage = {
         role: 'assistant',
-        content: response.data.llm_response,
+        content: response.llm_response,
         timestamp: new Date().toISOString(),
-        sources: response.data.documents
+        sources: response.documents
       };
       setMessages((prev) => [...prev, assistantMessage]);
 
       // Update conversations list
       updateConversationsList();
     } catch (err) {
-      setError('Error generating response: ' + (err.response?.data?.detail || err.message));
+      setError('Error generating response: ' + (err.message || 'Unknown error'));
       // Remove the user message if request failed
       setMessages((prev) => prev.slice(0, -1));
     } finally {
@@ -174,6 +194,28 @@ function App() {
     loadConversationHistory(convId);
   };
 
+  if (isLoading) {
+    return (
+      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
+        <p>Loading...</p>
+      </div>
+    );
+  }
+
+  if (!isAuthenticated) {
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', height: '100vh', gap: '16px' }}>
+        <h1>KnowBot Assistant</h1>
+        <button
+          onClick={login}
+          style={{ padding: '12px 28px', fontSize: '16px', cursor: 'pointer', borderRadius: '6px', border: 'none', background: '#0078d4', color: 'white' }}
+        >
+          Sign in with Microsoft
+        </button>
+      </div>
+    );
+  }
+
   return (
     <div className="chatbot-app">
       <ConversationList
@@ -185,8 +227,31 @@ function App() {
 
       <div className="chat-container">
         <div className="chat-header">
-          <h1>KnowBot Assistant</h1>
-          <p>Ask me anything about your documents</p>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
+            <div>
+              <h1>KnowBot Assistant</h1>
+              <p>Ask me anything about your documents</p>
+              {user && <p style={{ fontSize: '13px', color: '#666' }}>Signed in as {user.displayName || user.mail}</p>}
+            </div>
+            {user && (
+              <button
+                onClick={logout}
+                style={{
+                  padding: '8px 16px',
+                  background: '#d13438',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '4px',
+                  cursor: 'pointer',
+                  fontSize: '14px',
+                  fontWeight: '500',
+                  whiteSpace: 'nowrap'
+                }}
+              >
+                Sign Out
+              </button>
+            )}
+          </div>
         </div>
 
         <div className="messages-area">

@@ -67,6 +67,7 @@ class AppInsightsLogger:
     def warning(
         self,
         message: str,
+        exception: Optional[Exception] = None,
         properties: Optional[Dict[str, Any]] = None,
         measurements: Optional[Dict[str, float]] = None
     ) -> None:
@@ -75,9 +76,13 @@ class AppInsightsLogger:
         
         Args:
             message: Log message
+            exception: Exception object (optional)
             properties: Custom properties/dimensions dict
             measurements: Custom metrics dict
         """
+        if exception:
+            properties = properties or {}
+            properties["exception"] = str(exception)
         self._log("WARNING", message, properties, measurements)
     
     def error(

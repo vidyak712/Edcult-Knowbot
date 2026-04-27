@@ -22,19 +22,6 @@ class CosmosDBHelper:
         self.database = self.client.get_database_client(self.database_name)
         self.container = self.database.get_container_client(self.container_name)
     
-    def get_container_info(self):
-        """Get container configuration info including partition key"""
-        try:
-            container_props = self.container.read()
-            partition_keys = container_props.get('partitionKey', {})
-            print(f"[OK] Container Info:")
-            print(f"  Partition Key Paths: {partition_keys.get('paths', [])}")
-            print(f"  Partition Key Kind: {partition_keys.get('kind', 'Hash')}")
-            return container_props
-        except Exception as e:
-            print(f"[ERROR] Failed to get container info: {e}")
-            raise
-    
     def add_record(self,
                    user_id: str,
                    conversation_id: str, 
@@ -144,89 +131,21 @@ class CosmosDBHelper:
         """Close the Cosmos DB client connection"""
         pass  # Azure Cosmos client handles connections automatically
 
-    def get_user_all_conversations(self, user_id: str) -> list:
-        """
-        Retrieve all conversations for a user (analysis query)
-        
-        Args:
-            user_id (str): User identifier
-        
-        Returns:
-            list: List of all messages across all conversations for the user
-        """
-        try:
-            query = "SELECT c.conversationId, c.role, c.content, c.timestamp FROM c ORDER BY c.timestamp"
-            items = list(self.container.query_items(
-                query=query,
-                partition_key=user_id
-            ))
-            return items
-        except Exception as e:
-            print(f"[ERROR] Failed to retrieve user conversations: {e}")
-            raise
-
-    def get_user_message_count(self, user_id: str, conversation_id: str = None) -> int:
-        """
-        Get message count for analysis
-        
-        Args:
-            user_id (str): User identifier
-            conversation_id (str, optional): If provided, count for specific conversation; else all user messages
-        
-        Returns:
-            int: Number of messages
-        """
-        try:
-            if conversation_id:
-                query = "SELECT VALUE COUNT(c) FROM c WHERE c.conversationId = @conversation_id"
-                params = [{"name": "@conversation_id", "value": conversation_id}]
-            else:
-                query = "SELECT VALUE COUNT(c) FROM c"
-                params = []
-            
-            result = self.container.query_items(query=query, parameters=params, partition_key=user_id)
-            count = list(result)[0]
-            return count
-        except Exception as e:
-            print(f"[ERROR] Failed to get message count: {e}")
-            return 0
-
-
-def get_conversation_history(user_id: str, conversation_id: str) -> list:
-    """
-    Convenience function to retrieve conversation history
-    
-    Args:
-        user_id (str): User identifier (partition key)
-        conversation_id (str): Conversation identifier
-    
-    Returns:
-        list: List of records for the conversation
-    """
-    helper = CosmosDBHelper()
-    try:
-        return helper.get_conversation(user_id, conversation_id)
-    finally:
-        helper.close()
-
 
 if __name__ == "__main__":
     # Example usage
     try:
         cosmos = CosmosDBHelper()
         
-        # First, check container info
-        print("\n--- Container Configuration ---")
-        cosmos.get_container_info()
-        
-        # Add a test record (without specifying record_id so it auto-generates a unique one)
+        # Add a test record
         print("\n--- Adding Test Record ---")
+        test_user = "user_123"
+        test_conv = "conv_001"
+        cosmos.add_record(test_user, test_conv, "user", "Test message")
         
         # Retrieve conversation
         print("\n--- Retrieving Conversation ---")
-        user_id = "user_123"  # Example user
-        conversation_id = "conv_001"
-        history = cosmos.get_conversation(user_id, conversation_id)
+        history = cosmos.get_conversation(test_user, test_conv)
         print(f"Conversation history: {len(history)} messages found")
         for msg in history:
             print(f"  - {msg['role']}: {msg['content'][:50]}...")

@@ -9,7 +9,7 @@ load_dotenv()
 
 AZURE_SEARCH_ENDPOINT = os.getenv("AZURE_SEARCH_ENDPOINT")
 AZURE_SEARCH_ADMIN_KEY = os.getenv("AZURE_SEARCH_ADMIN_KEY")
-SEARCH_INDEX_NAME = "index-knowbot"
+SEARCH_INDEX_NAME = "index-knowbot-new"
 
 def delete_all_documents():
     """Delete all documents from the search index"""

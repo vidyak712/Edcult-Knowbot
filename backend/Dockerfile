@@ -10,9 +10,7 @@ RUN apt-get update && apt-get install -y \
     libffi-dev \
     libssl-dev \
     python3-dev \
-    zlib1g-dev \
-    libjpeg-dev \
-    libpng-dev \
+    curl \
     && rm -rf /var/lib/apt/lists/*
 
 # Upgrade pip
@@ -35,8 +33,9 @@ ENV PYTHONUNBUFFERED=1
 ENV PYTHONDONTWRITEBYTECODE=1
 
 # Health check
-HEALTHCHECK --interval=30s --timeout=10s --start-period=10s --retries=3 \
-  CMD python -c "import requests; requests.get('http://localhost:3001/api/health', timeout=5)"
+HEALTHCHECK --interval=30s --timeout=10s --start-period=15s --retries=3 \
+  #CMD curl -f http://localhost:3001/api/health || exit 1
+  CMD curl -f https://knowbot-backend.orangepebble-f73d9664.uksouth.azurecontainerapps.io/api/health || exit 1
 
 # Run FastAPI with uvicorn
 CMD ["python", "-m", "uvicorn", "src.fastapi_search_api:app", "--host", "0.0.0.0", "--port", "3001"]

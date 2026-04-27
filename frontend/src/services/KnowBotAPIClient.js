@@ -3,20 +3,18 @@
  * Automatically includes user_id from Entra ID authentication
  */
 
-const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:3001';
+//const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:3001';
+
+const API_BASE_URL = process.env.REACT_APP_API_URL || 'https://knowbot-backend.orangepebble-f73d9664.uksouth.azurecontainerapps.io';
 
 export class KnowBotAPIClient {
   /**
-   * Initialize the API client with Entra ID user context
    * @param {Object} user - Entra ID user object from auth context
+   * @param {Function} getToken - Async function that returns a Bearer token for the API
    */
-  constructor(user) {
+  constructor(user, getToken) {
     this.user = user;
-    this.userId = user?.mail || user?.upn || user?.oid;
-    
-    if (!this.userId) {
-      console.warn('Warning: No user ID found from authentication');
-    }
+    this.getToken = getToken;
   }
 
   /**
@@ -27,21 +25,18 @@ export class KnowBotAPIClient {
    * @returns {Promise<Object>} LLM response with documents and token usage
    */
   async getLLMResponse(query, conversationId, topDocs = 4) {
-    if (!this.userId) {
-      throw new Error('User not authenticated');
-    }
+    const token = await this.getToken();
 
     try {
       const response = await fetch(`${API_BASE_URL}/api/llm-response`, {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json'
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
         },
         body: JSON.stringify({
           query,
-          conversationId,
-          user_id: this.userId,
-          top_docs: topDocs
+          conversationId
         })
       });
 
@@ -65,23 +60,18 @@ export class KnowBotAPIClient {
    * @returns {Promise<Object>} Conversation messages and metadata
    */
   async getConversationHistory(conversationId, limit = 50, offset = 0) {
-    if (!this.userId) {
-      throw new Error('User not authenticated');
-    }
+    const token = await this.getToken();
 
     try {
-      const params = new URLSearchParams({
-        user_id: this.userId,
-        limit,
-        offset
-      });
+      const params = new URLSearchParams({ limit, offset });
 
       const response = await fetch(
         `${API_BASE_URL}/api/conversation-history/${conversationId}?${params}`,
         {
           method: 'GET',
           headers: {
-            'Content-Type': 'application/json'
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
           }
         }
       );
