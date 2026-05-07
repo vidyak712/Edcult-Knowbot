@@ -3,9 +3,9 @@
  * Automatically includes user_id from Entra ID authentication
  */
 
-//const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:3001';
+const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:3001';
 
-const API_BASE_URL = process.env.REACT_APP_API_URL || 'https://knowbot-backend.orangepebble-f73d9664.uksouth.azurecontainerapps.io';
+//const API_BASE_URL = process.env.REACT_APP_API_URL || 'https://knowbot-backend.orangepebble-f73d9664.uksouth.azurecontainerapps.io';
 
 export class KnowBotAPIClient {
   /**
